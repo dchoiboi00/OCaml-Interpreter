@@ -87,8 +87,34 @@ let str_cat sep a b =
     parser generator.
  *******************************************************************)
 
+ (* symbol_production is a tuple of two component:
+    First component: string
+    Second component: a list for (string list), basically a list for lists of strings
+ *)
 type symbol_productions = (string * string list list);;
+
+(* a list of symbol_productions *)
 type grammar = symbol_productions list;;
+
+(* parse_table is a list of tuples that contains two component:
+   First component: string (nt)
+   Second component: a list of a a tuple that contains two component: (predicts sets)
+        each tuple is:
+        First component: string list  ex: beginning of tuple ( [int, real, id, read]
+        Second component: string list ex:                      [S, SL] or [epsilon] ) end of tuple
+
+        ex:
+        nt = SL
+        parse_table = 
+        [
+        ("SL", [ ([int, real, id, read], [S, SL]),
+                ([fi, od, $$], [epsilon]) 
+              ]
+        ),
+        (...),
+        (...)
+        ]
+*)
 type parse_table = (string * (string list * string list) list) list;;
 (*                  nt        predict_set   rhs *)
 
@@ -716,7 +742,8 @@ let pp_p (sl:ast_sl) = print_string ("[ " ^ (pp_sl sl "  ") ^ "\n]\n");;
     and type clashes.  Also divide-by-zero and non-numeric input or
     unexpected end of input on read.  Respects scopes: each variable is
     visible only from its declaration to the end of the innermost
-    statement list in which it is declared.
+    statement list in which it is declared. (Question: Is it still visible after the end
+    d)
  *******************************************************************)
 
 type value =
@@ -734,12 +761,24 @@ let pop (s:'a stack) : 'a option * 'a stack =
 (* Memory is a stack of scopes, with the innermost scope at the top.
    Each scope consists of a list of (name, value) pairs. *)
 type memory = (string * value) list stack;;
+(* memory: 
+   a stack of list(scope), which the list contains tuples that has two components:
+   First component: String
+   Second component: value 
 
+   first in last out
+   ex: stack -> [  [(name, val),(name, value),(name, val)],  [(n, v),(n, v),(...)],  [(),(),()]  ]
+                                    scope 1                         scope 2             scope 3
+
+*)
+
+(* push and pop but for memory type stackd *)
 let new_scope (mem:memory) : memory = push [] mem;;
 let end_scope (mem:memory) : memory = let (_, mem2) = pop mem in mem2;;
 
 let name_match id = fun (sym, _) -> id = sym;;
 
+(*  *)
 let rec lookup_mem (id:string) (loc:row_col) (mem:memory) : value =
   match mem with
   | [] -> Error (complaint loc (id ^ " not found"))
@@ -776,6 +815,12 @@ type status =
     the standard Str library to split the input string into whitespace-
     separated words, each of which is subsequently checked for validity. *)
 
+
+(* inp becomes a list of strings of the inputs(tokens) we splitted 
+   let outp be what's return from calling interpret_sl with 
+
+*)
+
 let rec interpret (ast:ast_sl) (full_input:string) : string =
   let inp = split (regexp "[ \t\n\r]+") full_input in
   let (_, _, _, outp) = interpret_sl 0 true ast [[]] inp [] in
@@ -784,6 +829,14 @@ let rec interpret (ast:ast_sl) (full_input:string) : string =
 (* iter1 indicates whether this is the first time this statement list
    has executed in a fresh scope.  It's false for the second and
    subsequent iterations of a do loop. *)
+
+   (* sl will be a list of ast_s
+    base case: when sl is empty, we just return the current output  
+    else: 
+    we split current sl into h and t
+    h is the most nearest statement node, and t is the rest of statement list (statement nodes)
+   
+   *)
 and interpret_sl (loop_count:int) (iter1:bool) (sl:ast_sl) (mem:memory)
                  (inp:string list) (outp:string list)
     : status * memory * string list * string list =
@@ -791,6 +844,11 @@ and interpret_sl (loop_count:int) (iter1:bool) (sl:ast_sl) (mem:memory)
   (*
     NOTICE: your code should replace the following line.
   *)
+  (* match sl with
+  | [] -> ok? * mem? * input? * outp
+  | h::t ->
+    let (s, m, i, o) = interpret_s loop_count iter1 h mem inp outp in
+  interpret_sl loop_count iter1 t mem i outp *)
   (Good, mem, inp, outp)
 
 (* NB: the following routine is complete.  You can call it on any
@@ -874,6 +932,7 @@ and interpret_if (loop_count:int) (cond:ast_c) (sl:ast_sl) (mem:memory)
   *)
   (Good, mem, inp, outp)
 
+(* interpret_sl loop_count-1 false sl mem   *)
 and interpret_do (loop_count:int) (sl:ast_sl) (mem:memory)
                  (inp:string list) (outp:string list)
     : status * memory * string list * string list =

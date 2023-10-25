@@ -716,10 +716,12 @@ and ast_ize_expr_tail (lo:ast_e) (tail:parse_tree) : ast_e =   (* TT or FT *)
   match tail with
   | PT_nt ("TT", _, []) -> lo
   | PT_nt ("TT", _, [PT_nt ("AO", _, PT_term(ao, op_loc)::rest); t; tt]) ->
-      AST_binop (ao, lo, ast_ize_expr_tail (ast_ize_expr t) tt, op_loc)
+      let n = AST_binop(ao, lo, (ast_ize_expr t), op_loc) in 
+      ast_ize_expr_tail n tt 
   | PT_nt ("FT", _, []) -> lo
   | PT_nt ("FT", _, [PT_nt ("MO", _, PT_term(mo, op_loc)::rest); f; ft]) ->
-      AST_binop (mo, lo, ast_ize_expr_tail (ast_ize_expr f) ft, op_loc)
+      let n = AST_binop(mo, lo, (ast_ize_expr f), op_loc) in 
+      ast_ize_expr_tail n ft 
   | _ -> raise (Failure "malformed parse tree in ast_ize_expr_tail")
 
 and ast_ize_cond (c:parse_tree) : ast_c =
@@ -881,9 +883,14 @@ and interpret_sl (loop_count:int) (iter1:bool) (sl:ast_sl) (mem:memory)
   | [] -> (Good, mem, inp, outp)
   | s::sl -> 
       let (curr_status, m, i, o) = interpret_s loop_count iter1 s mem inp outp in
-      (* 
+      (*
       Printf.printf "Statement finished: %s\n" (statement_to_string s);
       Printf.printf "Memory After: %s\n\n" (memory_to_string m); 
+      *)
+
+      (* Good: keep interpreting, no errors so far
+         Bad: saw an error, stop the program and print where we caught the error
+         Done: check statement returned false, stop the do-loop statement list   
       *)
       (match curr_status with
       | Good -> interpret_sl loop_count iter1 sl m i o
@@ -948,18 +955,6 @@ and interpret_dec (iter1:bool) (id:string) (v:value) (vloc:row_col)
   *)
     match iter1 with
     | true -> 
-      (* get most inner scope 
-      let curr_scope = match mem with
-      | [] -> []
-      | scope :: surround -> scope in
-      let var_exists = List.exists (fun (name, _) -> name = id) curr_scope in
-
-      if var_exists then
-        (Bad, [], [], outp @ [complaint vloc "Variable " ^ id ^ " is already defined in this scope"])
-      else
-
-      We did not need to look up inner scope. insert_mem already checks if the var exists.
-      *)
         let new_mem, var_did_insert = insert_mem id v mem in 
         if var_did_insert then
           (Good, new_mem, inp, outp)
@@ -1072,7 +1067,7 @@ and interpret_if (loop_count:int) (cond:ast_c) (sl:ast_sl) (mem:memory)
     let (new_status, new_mem, new_inp, new_outp) = interpret_sl loop_count true sl scope inp outp in
     (new_status, (end_scope new_mem), new_inp, new_outp)
   | Ivalue(0) -> (Good, m, inp, outp)
-  | Error (s) -> (Bad, [], [], outp @ [complaint op_loc s])
+  | Error (s) -> (Bad, [], [], outp @ [s])
 
 and interpret_do (loop_count:int) (iter1:bool) (sl:ast_sl) (mem:memory)
                  (inp:string list) (outp:string list)
@@ -1088,7 +1083,7 @@ and interpret_do (loop_count:int) (iter1:bool) (sl:ast_sl) (mem:memory)
   interpret_do (loop_count+1) false sl new_mem new_inp new_outp
   | Done -> 
     (Good, end_scope new_mem, new_inp, new_outp)
-  | Bad -> (Bad, new_mem, new_inp, outp)
+  | Bad -> (Bad, new_mem, new_inp, new_outp)
 
   
 
@@ -1101,7 +1096,7 @@ and interpret_check (cond:ast_c) (mem:memory)
     match v with
       | Ivalue(1) -> (Good, m, inp, outp)
       | Ivalue(0) -> (Done, m, inp, outp)
-      | Error (s) -> (Bad, [], [], outp @ [complaint op_loc s])
+      | Error (s) -> (Bad, [], [], outp @ [s])
 
 
 (* Check for errors:
@@ -1311,7 +1306,7 @@ let show_ast prog = pp_p (ast_ize_prog (parse ecg_parse_table prog));;
 
 let main () =
 
-
+  (*
   print_string (interpret sum_ave_syntax_tree "4 6");
     (* should print "10 5" *)
   print_newline ();
@@ -1330,6 +1325,7 @@ let main () =
   print_string (ecg_run "read int a read int b" "3");
     (* should print " line 1, col 21: unexpected end of input" *)
   print_newline ();
+  *)
 
 
 (* Code below expects there to be a single command-line argument, which

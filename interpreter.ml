@@ -1044,14 +1044,14 @@ and interpret_assign (lhs:string) (rhs:ast_e) (vloc:row_col) (aloc:row_col)
         | Ivalue(_) -> 
           let new_mem = update_mem lhs v m in
           (Good, new_mem, inp, outp)
-        | Rvalue(_) -> (Bad, [], [], outp @ [complaint aloc "unexpected input type, needed int"])
+        | Rvalue(_) -> (Bad, [], [], outp @ [complaint aloc "unexpected value type, needed int"])
         | Error(s) -> (Bad, [], [], outp @ [s]))
       | Rvalue(_) ->
         (match v with
         | Rvalue(_) ->
           let new_mem = update_mem lhs v m in
           (Good, new_mem, inp, outp)
-        | Ivalue(_) -> (Bad, [], [], outp @ [complaint aloc "unexpected input type, needed real"])
+        | Ivalue(_) -> (Bad, [], [], outp @ [complaint aloc "unexpected value type, needed real"])
         | Error(s) -> (Bad, [], [], outp @ [s]))
       )
 
